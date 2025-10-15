@@ -1,79 +1,67 @@
 import random
-import datetime
+import gui_functions
 
-def guess_country():
-    user_name = input("Enter your name: ").strip()
-    print("Let's start the game.")
-    print()
-
+def load_countries():
+    global countries
     countries = []
-    file = open("countries.txt", "r")
-    for line in file:
-        clean_line = line.strip()
-        if clean_line != "":
-            countries.append(clean_line.lower())
-    file.close()
+    file_path = "data/countries.txt"
+    with open(file_path, "r") as file:
+        for line in file:
+            clean_line = line.strip()
+            if clean_line != "":
+                countries.append(clean_line.lower())
+    return countries
 
-    index = random.randint(0, len(countries) - 1)
-    chosen_country = countries[index]
-
-    guessed_letters = []  
+def start_game(countries, max_attempts = 7):
+    global attempts
+    chosen_country = random.choice(countries)
     display = []
-
-    for i in chosen_country:
-     display.append("_")
-
-    print(f"The country has {len(chosen_country)} letters.")
-    print(" ".join(display))
-    print()
-
+    for letter in chosen_country:
+        if letter.isalpha():
+            display.append("_")
+        else:
+            display.append(letter)
+    guessed_letters = []
     attempts = 0
-    max_attempts = 10
-    won = False
+    return {
+        "chosen_country": chosen_country,
+        "display": display,
+        "guessed_letters": guessed_letters,
+        "attempts": attempts,
+        "max_attempts": max_attempts
+    }
 
-    while attempts < max_attempts:
-        guess = input(f"Enter a letter ({attempts}/{max_attempts} attempts used): ").lower()
+def check_guess(game_state, guess):
+    guess = guess.lower()
 
-        if len(guess) != 1 or not guess.isalpha():
-            print("Please enter a single letter.")
-            continue
+    if len(guess) != 1 or not guess.isalpha():
+        return "invalid"
 
-        if guess in guessed_letters:
-            print("You already guessed that letter.")
-            continue
+    if guess in game_state["guessed_letters"]:
+        return "already"
 
-        guessed_letters.append(guess)
+    game_state["guessed_letters"].append(guess)
 
-        if guess in chosen_country:
-            print(f"Good! The letter '{guess}' is in the country.")
-            for i, letter in enumerate(chosen_country):
-                if letter == guess:
-                    display[i] = guess
-        else:
-            print(f"Wrong! The letter '{guess}' is not in the country, idiot!")
-            attempts += 1
+    correct_guess = False
+    i = 0
+    for letter in game_state["chosen_country"]:
+        if letter == guess:
+            game_state["display"][i] = guess
+            correct_guess = True
+        i += 1
 
-        print("Current word:", " ".join(display))
-        print()
+    if not correct_guess:
+        game_state["attempts"] += 1
 
-        if "_" not in display:
-            print(f"🎉 SUUUIIIIIIIII! The country was {chosen_country.title()}! You don't have skill issue!")
-            won = True
-            break
+    gui_functions.update_display(game_state)
+    gui_functions.update_lives(game_state)
+    gui_functions.check_game_end(game_state)
+    return "correct" if correct_guess else "wrong"
 
- 
-    if not won:
-        print(f"💀💀💀 Dumbass! Attempts are over! The country was {chosen_country.title()}. Never come back again!")
 
-    with open("game_log.txt", "a") as log_file:
-        log_file.write(f"Time: {datetime.datetime.now()}\n")
-        log_file.write(f"User: {user_name}\n")
-        log_file.write(f"Word: {chosen_country}\n")
-        log_file.write(f"Attempts: {attempts}\n")
-        if won:
-            log_file.write(f"Result: {'Won'}\n")
-        else:
-            log_file.write(f"Result: {'Lost'}\n")
-        log_file.write("-" * 50 + "\n")
-
-guess_country()
+def game_over(game_state):
+    if "_" not in game_state["display"]:
+        return "won"
+    elif game_state["attempts"] >= game_state["max_attempts"]:
+        return "lost"
+    return None
